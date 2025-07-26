@@ -29,7 +29,7 @@ func start(ctx *ext.Context, u *ext.Update) error {
 		return dispatcher.EndGroups
 	}
 
-	message := "👋 *Hi!*\n\nSend me any Telegram file (video, audio, document, etc.) and I will give you a direct streaming/download link for it.\n\n💡 *Tip:* The file must be under Telegram's file size limit.\n\n🙏 *Support this bot:* [Click here](https://yoelmod.blogspot.com/)"
+	message := "👋 Hi!\n\nSend me any Telegram file (video, audio, document, etc.) and I will give you a direct streaming/download link for it.\n\n💡 *Tip:* The file must be under Telegram's file size limit.\n\n🙏 *Support this bot* (https://yoelmod.blogspot.com/"
 
 	ctx.Reply(u, message, nil)
 
