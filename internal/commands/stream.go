@@ -86,4 +86,35 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 
 	row := tg.KeyboardButtonRow{
 		Buttons: []tg.KeyboardButtonClass{
-			&tg.KeyboardB
+			&tg.KeyboardButtonURL{
+				Text: "DOWNLOAD",
+				URL:  link + "&d=true",
+			},
+		},
+	}
+
+	if strings.Contains(file.MimeType, "video") || strings.Contains(file.MimeType, "audio") || strings.Contains(file.MimeType, "pdf") {
+		row.Buttons = append(row.Buttons, &tg.KeyboardButtonURL{
+			Text: "STREAM",
+			URL:  link,
+		})
+	}
+
+	markup := &tg.ReplyInlineMarkup{
+		Rows: []tg.KeyboardButtonRow{row},
+	}
+
+	// Enviar texto invisible para evitar MESSAGE_EMPTY y enviar solo botones
+	_, err = ctx.Reply(u, "\u200B", &ext.ReplyOpts{
+		Markup:           markup,
+		NoWebpage:        true,
+		ReplyToMessageId: u.EffectiveMessage.ID,
+	})
+
+	if err != nil {
+		utils.Logger.Sugar().Error(err)
+		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
+	}
+
+	return dispatcher.EndGroups
+}
