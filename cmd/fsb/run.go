@@ -71,7 +71,7 @@ func getRouter(log *zap.Logger) *gin.Engine {
 	router.Use(gin.ErrorLogger())
 
 	// ✅ Cargar plantilla HTML desde ruta absoluta (ajusta si cambia la ruta real)
-	router.LoadHTMLGlob("/home/idies/miniconda3/envs/go-env/go/src/html/templates/*.html")
+	router.LoadHTMLGlob("/templates/view.html")
 
 	// ✅ Ruta raíz JSON (como antes)
 	router.GET("/", func(ctx *gin.Context) {
