@@ -25,7 +25,7 @@ func (m *command) LoadStream(dispatcher dispatcher.Dispatcher) {
 }
 
 func supportedMediaFilter(m *types.Message) (bool, error) {
-	if m.Media == nil {
+	if not := m.Media == nil; not {
 		return false, dispatcher.EndGroups
 	}
 	switch m.Media.(type) {
@@ -50,7 +50,6 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 		ctx.Reply(u, "You are not allowed to use this bot.", nil)
 		return dispatcher.EndGroups
 	}
-
 	supported, err := supportedMediaFilter(u.EffectiveMessage)
 	if err != nil {
 		return err
@@ -59,23 +58,19 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 		ctx.Reply(u, "Sorry, this message type is unsupported.", nil)
 		return dispatcher.EndGroups
 	}
-
 	update, err := utils.ForwardMessages(ctx, chatId, config.ValueOf.LogChannelID, u.EffectiveMessage.ID)
 	if err != nil {
 		utils.Logger.Sugar().Error(err)
 		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
 		return dispatcher.EndGroups
 	}
-
 	messageID := update.Updates[0].(*tg.UpdateMessageID).ID
 	doc := update.Updates[1].(*tg.UpdateNewChannelMessage).Message.(*tg.Message).Media
-
 	file, err := utils.FileFromMedia(doc)
 	if err != nil {
 		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
 		return dispatcher.EndGroups
 	}
-
 	fullHash := utils.PackFile(
 		file.FileName,
 		file.FileSize,
@@ -84,7 +79,7 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 	)
 	hash := utils.GetShortHash(fullHash)
 	link := fmt.Sprintf("%s/stream/%d?hash=%s", config.ValueOf.Host, messageID, hash)
-
+	text := []styling.StyledTextOption{styling.Code(link)}
 	row := tg.KeyboardButtonRow{
 		Buttons: []tg.KeyboardButtonClass{
 			&tg.KeyboardButtonURL{
@@ -93,29 +88,30 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 			},
 		},
 	}
-
 	if strings.Contains(file.MimeType, "video") || strings.Contains(file.MimeType, "audio") || strings.Contains(file.MimeType, "pdf") {
 		row.Buttons = append(row.Buttons, &tg.KeyboardButtonURL{
 			Text: "STREAM",
 			URL:  link,
 		})
 	}
-
 	markup := &tg.ReplyInlineMarkup{
 		Rows: []tg.KeyboardButtonRow{row},
 	}
-
-	// Enviar texto invisible para evitar error MESSAGE_EMPTY y mostrar solo botones
-	_, err = ctx.Reply(u, "\u200B", &ext.ReplyOpts{
-		Markup:           markup,
-		NoWebpage:        true,
-		ReplyToMessageId: u.EffectiveMessage.ID,
-	})
-
+	if strings.Contains(link, "http://localhost") {
+		_, err = ctx.Reply(u, text, &ext.ReplyOpts{
+			NoWebpage:        false,
+			ReplyToMessageId: u.EffectiveMessage.ID,
+		})
+	} else {
+		_, err = ctx.Reply(u, text, &ext.ReplyOpts{
+			Markup:           markup,
+			NoWebpage:        false,
+			ReplyToMessageId: u.EffectiveMessage.ID,
+		})
+	}
 	if err != nil {
 		utils.Logger.Sugar().Error(err)
 		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
 	}
-
 	return dispatcher.EndGroups
 }
