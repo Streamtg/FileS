@@ -1,42 +1,25 @@
 package commands
 
 import (
-	"fmt"
-	"strings"
-
 	"EverythingSuckz/fsb/config"
 	"EverythingSuckz/fsb/internal/utils"
+	"fmt"
+	"net/url"
+	"strings"
 
 	"github.com/celestix/gotgproto/dispatcher"
 	"github.com/celestix/gotgproto/dispatcher/handlers"
 	"github.com/celestix/gotgproto/ext"
 	"github.com/celestix/gotgproto/storage"
-	"github.com/celestix/gotgproto/types"
-	"github.com/gotd/td/telegram/message/styling"
-	"github.com/gotd/td/tg"
 )
 
 func (m *command) LoadStream(dispatcher dispatcher.Dispatcher) {
 	log := m.log.Named("stream")
 	defer log.Sugar().Info("Loaded")
-	dispatcher.AddHandler(
-		handlers.NewMessage(nil, sendLink),
-	)
+	dispatcher.AddHandler(handlers.NewMessage(streamHandler))
 }
 
-func supportedMediaFilter(m *types.Message) (bool, error) {
-	if m.Media == nil {
-		return false, dispatcher.EndGroups
-	}
-	switch m.Media.(type) {
-	case *tg.MessageMediaDocument, *tg.MessageMediaPhoto:
-		return true, nil
-	default:
-		return false, dispatcher.EndGroups
-	}
-}
-
-func sendLink(ctx *ext.Context, u *ext.Update) error {
+func streamHandler(ctx *ext.Context, u *ext.Update) error {
 	chatId := u.EffectiveChat().GetID()
 	peerChatId := ctx.PeerStorage.GetPeerById(chatId)
 
@@ -49,68 +32,17 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 		return dispatcher.EndGroups
 	}
 
-	supported, err := supportedMediaFilter(u.EffectiveMessage)
-	if err != nil {
-		return err
-	}
-	if !supported {
-		ctx.Reply(u, "Sorry, this message type is unsupported.", nil)
+	message := u.EffectiveMessage()
+	if message.Media == nil {
+		ctx.Reply(u, "Please send a media file to get a streaming link.", nil)
 		return dispatcher.EndGroups
 	}
 
-	update, err := utils.ForwardMessages(ctx, chatId, config.ValueOf.LogChannelID, u.EffectiveMessage.ID)
-	if err != nil {
-		utils.Logger.Sugar().Error(err)
-		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
-		return dispatcher.EndGroups
-	}
+	fileId := fmt.Sprintf("%d", message.ID)
+	streamURL := fmt.Sprintf("%s/%s", strings.TrimRight(config.ValueOf.BaseURL, "/"), url.PathEscape(fileId))
 
-	messageID := update.Updates[0].(*tg.UpdateMessageID).ID
-	doc := update.Updates[1].(*tg.UpdateNewChannelMessage).Message.(*tg.Message).Media
-	file, err := utils.FileFromMedia(doc)
-	if err != nil {
-		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
-		return dispatcher.EndGroups
-	}
-
-	fullHash := utils.PackFile(file.FileName, file.FileSize, file.MimeType, file.ID)
-	hash := utils.GetShortHash(fullHash)
-	link := fmt.Sprintf("%s/stream/%d?hash=%s", config.ValueOf.Host, messageID, hash)
-
-	text := []styling.StyledTextOption{styling.Code(link)}
-
-	// Botones
-	row := tg.KeyboardButtonRow{
-		Buttons: []tg.KeyboardButtonClass{
-			&tg.KeyboardButtonURL{
-				Text: "DOWNLOAD",
-				URL:  link + "&d=true",
-			},
-		},
-	}
-
-	if strings.Contains(file.MimeType, "video") || strings.Contains(file.MimeType, "audio") || strings.Contains(file.MimeType, "pdf") {
-		row.Buttons = append(row.Buttons, &tg.KeyboardButtonURL{
-			Text: "STREAMING",
-			URL:  link,
-		})
-	}
-
-	markup := &tg.ReplyInlineMarkup{Rows: []tg.KeyboardButtonRow{row}}
-
-	sendOpts := &ext.SendOptions{
-		ReplyToMsgID: u.EffectiveMessage.ID,
-	}
-
-	if !strings.Contains(link, "localhost") {
-		sendOpts.ReplyMarkup = markup
-	}
-
-	_, err = ctx.ReplyStyled(u, text, sendOpts)
-	if err != nil {
-		utils.Logger.Sugar().Error(err)
-		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
-	}
+	replyText := fmt.Sprintf("🔗 **Here is your streaming link:**\n\n👉 %s", streamURL)
+	ctx.Reply(u, replyText, nil)
 
 	return dispatcher.EndGroups
 }
