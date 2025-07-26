@@ -60,7 +60,7 @@ func getStreamRoute(ctx *gin.Context) {
 		return
 	}
 
-	// Si es foto sin tamaño (thumbnail o foto)
+	// Para mensajes de fotos (sin tamaño de archivo)
 	if file.FileSize == 0 {
 		res, err := worker.Client.API().UploadGetFile(ctx, &tg.UploadGetFileRequest{
 			Location: file.Location,
@@ -84,26 +84,11 @@ func getStreamRoute(ctx *gin.Context) {
 		return
 	}
 
-	// Si el usuario solicita descarga forzada
-	if ctx.Query("d") == "true" {
-		ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", file.FileName))
-	} else {
-		// Si el tipo es video/audio/pdf, servir página con player
-		if strings.Contains(file.MimeType, "video") || strings.Contains(file.MimeType, "audio") || strings.Contains(file.MimeType, "pdf") {
-			streamURL := fmt.Sprintf("%s/stream/%d?hash=%s&d=true", utils.GetBaseURL(ctx), messageID, authHash)
-			var tag string
-			switch {
-			case strings.Contains(file.MimeType, "video"):
-				tag = "video"
-			case strings.Contains(file.MimeType, "audio"):
-				tag = "audio"
-			case strings.Contains(file.MimeType, "pdf"):
-				tag = "iframe"
-			default:
-				tag = "video"
-			}
+	// Si el query no tiene 'd=true', servimos la página HTML con reproductor
+	if ctx.Query("d") != "true" && (strings.Contains(file.MimeType, "video") || strings.Contains(file.MimeType, "audio") || strings.Contains(file.MimeType, "pdf")) {
+		streamURL := fmt.Sprintf("%s/stream/%d?hash=%s&d=true", config.ValueOf.Host, messageID, authHash)
 
-			html := fmt.Sprintf(`<!DOCTYPE html>
+		html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -116,14 +101,17 @@ func getStreamRoute(ctx *gin.Context) {
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Delius">
     <link rel="stylesheet" href="https://cdn.plyr.io/3.5.6/plyr.css" />
 </head>
+
 <body>
     <header>
         <div class="toogle"></div>
         <div id="file-name" class="cyber">%s</div>
     </header>
+
     <div class="container">
-        <%s src="%s" class="player" controls></%s>
+        <%s class="player" controls crossorigin></%s>
     </div>
+    
     <footer>
         <span id="Visit-text">Telegram Channel</span>
         <span>
@@ -132,53 +120,49 @@ func getStreamRoute(ctx *gin.Context) {
             </a>
         </span>
     </footer>
-    <script type="text/javascript">
-	atOptions = {
-		'key' : '72f2fe2e6c4a708c45e60e4c80b834c6',
-		'format' : 'iframe',
-		'height' : 250,
-		'width' : 300,
-		'params' : {}
-	};
-	document.write('<scr' + 'ipt type="text/javascript" src="http' + (location.protocol === 'https:' ? 's' : '') + '://allureencourage.com/72f2fe2e6c4a708c45e60e4c80b834c6/invoke.js"></scr' + 'ipt>');
-</script>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-XPCZ4QGYJT"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-XPCZ4QGYJT');
-</script>
-<script src="https://cdn.plyr.io/2.0.13/demo.js"></script>
-<script src="https://cdn.plyr.io/3.5.6/plyr.js"></script>
-<script>
-    const controls = [
-          'play-large', 'rewind', 'play', 'fast-forward', 'progress',
-          'current-time', 'duration', 'mute', 'volume', 'captions',
-          'settings', 'pip', 'airplay', 'fullscreen'
-    ];
-    document.addEventListener('DOMContentLoaded', () => {
-        const player = Plyr.setup('.player', { controls });
-    });
-    const body = document.querySelector('body');
-    const footer = document.querySelector('footer');
-    const toogle = document.querySelector('.toogle');
-    toogle.onclick = () => {
-        body.classList.toggle('dark')
-        footer.classList.toggle('dark')
-    }
-</script>
-</body>
-</html>`, file.FileName, file.FileName, tag, streamURL, tag)
 
-			ctx.Header("Content-Type", "text/html; charset=utf-8")
-			_, err = w.Write([]byte(html))
-			if err != nil {
-				log.Error("failed to write response", zap.Error(err))
-			}
-			return
+    <script src="https://cdn.plyr.io/3.5.6/plyr.js"></script>
+    <script>
+        const controls = [
+              'play-large',
+              'rewind',
+              'play', 
+              'fast-forward', 
+              'progress', 
+              'current-time',
+              'duration',
+              'mute',
+              'volume',
+              'captions',
+              'settings',
+              'pip',
+              'airplay',
+              'fullscreen'
+            ];
+        document.addEventListener('DOMContentLoaded', () => {
+            const player = Plyr.setup('.player', { controls });
+        });
+
+        const body = document.querySelector('body');
+        const footer = document.querySelector('footer');
+        const toogle = document.querySelector('.toogle');
+        toogle.onclick = () => {
+            body.classList.toggle('dark')
+            footer.classList.toggle('dark')
+        }
+    </script>
+</body>
+</html>`, file.FileName, file.FileName, getTag(file.MimeType), getTag(file.MimeType))
+
+		ctx.Header("Content-Type", "text/html; charset=utf-8")
+		_, err := ctx.Writer.Write([]byte(html))
+		if err != nil {
+			log.Error("Failed to write HTML", zap.Error(err))
 		}
+		return
 	}
+
+	// Stream o descarga directa del archivo
 
 	ctx.Header("Accept-Ranges", "bytes")
 	var start, end int64
@@ -189,7 +173,7 @@ func getStreamRoute(ctx *gin.Context) {
 		end = file.FileSize - 1
 		w.WriteHeader(http.StatusOK)
 	} else {
-		ranges, err := range_parser.Parse(file.FileSize, r.Header.Get("Range"))
+		ranges, err := range_parser.Parse(file.FileSize, rangeHeader)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -211,10 +195,13 @@ func getStreamRoute(ctx *gin.Context) {
 	ctx.Header("Content-Type", mimeType)
 	ctx.Header("Content-Length", strconv.FormatInt(contentLength, 10))
 
-	// Ya seteamos Content-Disposition para descarga arriba si se pidió
-	if ctx.Query("d") != "true" {
-		ctx.Header("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", file.FileName))
+	disposition := "inline"
+
+	if ctx.Query("d") == "true" {
+		disposition = "attachment"
 	}
+
+	ctx.Header("Content-Disposition", fmt.Sprintf("%s; filename=\"%s\"", disposition, file.FileName))
 
 	if r.Method != "HEAD" {
 		lr, _ := utils.NewTelegramReader(ctx, worker.Client, file.Location, start, end, contentLength)
@@ -222,4 +209,18 @@ func getStreamRoute(ctx *gin.Context) {
 			log.Error("Error while copying stream", zap.Error(err))
 		}
 	}
+}
+
+// getTag devuelve la etiqueta HTML para reproducir según el mimetype
+func getTag(mime string) string {
+	if strings.HasPrefix(mime, "video") {
+		return "video"
+	} else if strings.HasPrefix(mime, "audio") {
+		return "audio"
+	} else if strings.HasSuffix(mime, "pdf") {
+		// Para PDF usamos iframe para incrustar el visor PDF
+		return "iframe"
+	}
+	// Por defecto nada
+	return "div"
 }
