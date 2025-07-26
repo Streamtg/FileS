@@ -1,0 +1,21 @@
+<!-- templates/file.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ .FileName }}</title>
+</head>
+<body>
+    <h1>{{ .FileName }}</h1>
+    <p><strong>Tamaño:</strong> {{ .FileSize }}</p>
+    <p><strong>Tipo:</strong> {{ .MimeType }}</p>
+    <a href="{{ .DownloadURL }}">Descargar archivo</a>
+
+    {{ if .IsVideo }}
+    <video width="600" controls>
+        <source src="{{ .DownloadURL }}" type="{{ .MimeType }}">
+        Tu navegador no soporta video.
+    </video>
+    {{ end }}
+</body>
+</html>
