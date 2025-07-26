@@ -12,6 +12,7 @@ import (
 	"github.com/celestix/gotgproto/ext"
 	"github.com/celestix/gotgproto/storage"
 	"github.com/celestix/gotgproto/types"
+	"github.com/gotd/td/telegram/message/styling"
 	"github.com/gotd/td/tg"
 )
 
@@ -104,7 +105,7 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 		Rows: []tg.KeyboardButtonRow{row},
 	}
 
-	// Enviar texto invisible para evitar MESSAGE_EMPTY y enviar solo botones
+	// Enviar texto invisible para evitar error MESSAGE_EMPTY y mostrar solo botones
 	_, err = ctx.Reply(u, "\u200B", &ext.ReplyOpts{
 		Markup:           markup,
 		NoWebpage:        true,
