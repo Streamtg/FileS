@@ -8,7 +8,9 @@ import (
 	"EverythingSuckz/fsb/internal/types"
 	"EverythingSuckz/fsb/internal/utils"
 	"fmt"
+	"html/template"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -25,6 +27,41 @@ var runCmd = &cobra.Command{
 }
 
 var startTime time.Time = time.Now()
+
+// Struct para pasar datos a la plantilla /view
+type FileTemplateData struct {
+	FileName    string
+	FileSize    string
+	MimeType    string
+	DownloadURL string
+	IsVideo     bool
+}
+
+// Función para formatear tamaño de archivo en forma legible
+func ByteCountDecimal(b int64) string {
+	const unit = 1000
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "kMGTPE"[exp])
+}
+
+// Simulación de obtención de info de archivo (reemplazar por lógica real)
+func GetFileInfoFromTelegram(fileID string) (*FileTemplateData, error) {
+	// Ejemplo estático
+	return &FileTemplateData{
+		FileName:    "video-ejemplo.mp4",
+		FileSize:    ByteCountDecimal(10485760), // 10 MB
+		MimeType:    "video/mp4",
+		DownloadURL: "/download?id=" + fileID,
+		IsVideo:     strings.HasPrefix("video/mp4", "video/"),
+	}, nil
+}
 
 func runApp(cmd *cobra.Command, args []string) {
 	utils.InitLogger(config.ValueOf.Dev)
@@ -63,6 +100,7 @@ func getRouter(log *zap.Logger) *gin.Engine {
 	}
 	router := gin.Default()
 	router.Use(gin.ErrorLogger())
+
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, types.RootResponse{
 			Message: "Server is running.",
@@ -71,6 +109,34 @@ func getRouter(log *zap.Logger) *gin.Engine {
 			Version: versionString,
 		})
 	})
+
+	// Nuevo endpoint /view para mostrar info del archivo con plantilla HTML
+	router.GET("/view", func(ctx *gin.Context) {
+		fileID := ctx.Query("id")
+		if fileID == "" {
+			ctx.String(http.StatusBadRequest, "Falta el parámetro 'id'")
+			return
+		}
+
+		fileInfo, err := GetFileInfoFromTelegram(fileID)
+		if err != nil {
+			ctx.String(http.StatusNotFound, "Archivo no encontrado")
+			return
+		}
+
+		tmpl, err := template.ParseFiles("templates/file.html")
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, "Error al cargar plantilla")
+			return
+		}
+
+		ctx.Header("Content-Type", "text/html; charset=utf-8")
+		err = tmpl.Execute(ctx.Writer, fileInfo)
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, "Error al renderizar plantilla")
+		}
+	})
+
 	routes.Load(log, router)
 	return router
 }
