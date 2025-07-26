@@ -63,8 +63,9 @@ func getRouter(log *zap.Logger) *gin.Engine {
 	router := gin.Default()
 	router.Use(gin.ErrorLogger())
 
-	// 👉 Cargar plantillas HTML desde la carpeta /templates
-	router.LoadHTMLGlob("/home/idies/miniconda3/envs/go-env/go/src/html/templates/view.html")
+	// 👉 Cargar plantillas HTML desde la carpeta templates (adaptar según sea necesario)
+	router.LoadHTMLGlob("html/templates/*.html") // Asegúrate que el archivo view.html esté en esta ruta
+
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, types.RootResponse{
 			Message: "Server is running.",
@@ -74,7 +75,7 @@ func getRouter(log *zap.Logger) *gin.Engine {
 		})
 	})
 
-	// 👉 Endpoint para renderizar el HTML en /view
+	// 👉 Endpoint /view para renderizar view.html
 	router.GET("/view", func(ctx *gin.Context) {
 		ctx.HTML(http.StatusOK, "view.html", gin.H{
 			"title":   "Telegram File Stream Bot",
