@@ -29,25 +29,9 @@ func start(ctx *ext.Context, u *ext.Update) error {
 		return dispatcher.EndGroups
 	}
 
-	message := `👋 *Welcome to the Telegram File Stream Bot!*
+	message := "👋 *Hi!*\n\nSend me any Telegram file (video, audio, document, etc.) and I will give you a direct streaming/download link for it.\n\n💡 *Tip:* The file must be under Telegram's file size limit.\n\n🙏 *Support this bot:* [Click here](https://yoelmod.blogspot.com/)"
 
-This bot allows you to generate direct streamable links for media files sent via Telegram.
-You can upload videos, audios, or documents and instantly get a streaming link.
-
-✅ *Key features:*
-- HTTP streaming for video, audio, and files
-- Fast, secure, and easy to use
-- Simple interface for sharing content
-
-💡 *How to start?*
-Just send a file here or type /help for more information.
-
-🙏 *Support me by clicking here:*
-[https://yoelmod.blogspot.com/](https://yoelmod.blogspot.com/)`
-
-	ctx.Reply(u, message, &ext.SendOptions{
-		ParseMode: "Markdown",
-	})
+	ctx.Reply(u, message, nil)
 
 	return dispatcher.EndGroups
 }
