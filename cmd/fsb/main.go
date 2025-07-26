@@ -2,6 +2,7 @@ package main
 
 import (
 	"EverythingSuckz/fsb/config"
+	"EverythingSuckz/fsb/internal/routes"
 	"fmt"
 	"os"
 
