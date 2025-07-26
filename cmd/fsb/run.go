@@ -64,7 +64,7 @@ func getRouter(log *zap.Logger) *gin.Engine {
 	router.Use(gin.ErrorLogger())
 
 	// 👉 Cargar plantillas HTML desde la carpeta templates (adaptar según sea necesario)
-	router.LoadHTMLGlob("html/templates/*.html") // Asegúrate que el archivo view.html esté en esta ruta
+	router.LoadHTMLGlob("templates/*.html") // Asegúrate que el archivo view.html esté en esta ruta
 
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, types.RootResponse{
