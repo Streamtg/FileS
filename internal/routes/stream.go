@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"EverythingSuckz/fsb/config"    // <-- agregar este import
 	"EverythingSuckz/fsb/internal/bot"
 	"EverythingSuckz/fsb/internal/utils"
 	"fmt"
@@ -84,10 +85,11 @@ func getStreamRoute(ctx *gin.Context) {
 		return
 	}
 
-	// Si el query no tiene 'd=true', servimos la página HTML con reproductor
-	if ctx.Query("d") != "true" && (strings.Contains(file.MimeType, "video") || strings.Contains(file.MimeType, "audio") || strings.Contains(file.MimeType, "pdf")) {
-		streamURL := fmt.Sprintf("%s/stream/%d?hash=%s&d=true", config.ValueOf.Host, messageID, authHash)
+	// Construyo el streamURL con config.ValueOf.Host y la query d=true para descarga directa/stream
+	streamURL := fmt.Sprintf("%s/stream/%d?hash=%s&d=true", config.ValueOf.Host, messageID, authHash)
 
+	// Si NO es descarga directa y es video/audio/pdf devuelvo página HTML con reproductor
+	if ctx.Query("d") != "true" && (strings.Contains(file.MimeType, "video") || strings.Contains(file.MimeType, "audio") || strings.Contains(file.MimeType, "pdf")) {
 		html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -109,7 +111,7 @@ func getStreamRoute(ctx *gin.Context) {
     </header>
 
     <div class="container">
-        <%s class="player" controls crossorigin></%s>
+        <%s src="%s" class="player" controls crossorigin></%s>
     </div>
     
     <footer>
@@ -152,7 +154,7 @@ func getStreamRoute(ctx *gin.Context) {
         }
     </script>
 </body>
-</html>`, file.FileName, file.FileName, getTag(file.MimeType), getTag(file.MimeType))
+</html>`, file.FileName, file.FileName, getTag(file.MimeType), streamURL, getTag(file.MimeType))
 
 		ctx.Header("Content-Type", "text/html; charset=utf-8")
 		_, err := ctx.Writer.Write([]byte(html))
@@ -161,8 +163,6 @@ func getStreamRoute(ctx *gin.Context) {
 		}
 		return
 	}
-
-	// Stream o descarga directa del archivo
 
 	ctx.Header("Accept-Ranges", "bytes")
 	var start, end int64
