@@ -49,6 +49,7 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 		ctx.Reply(u, "You are not allowed to use this bot.", nil)
 		return dispatcher.EndGroups
 	}
+
 	supported, err := supportedMediaFilter(u.EffectiveMessage)
 	if err != nil {
 		return err
@@ -57,19 +58,23 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 		ctx.Reply(u, "Sorry, this message type is unsupported.", nil)
 		return dispatcher.EndGroups
 	}
+
 	update, err := utils.ForwardMessages(ctx, chatId, config.ValueOf.LogChannelID, u.EffectiveMessage.ID)
 	if err != nil {
 		utils.Logger.Sugar().Error(err)
 		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
 		return dispatcher.EndGroups
 	}
+
 	messageID := update.Updates[0].(*tg.UpdateMessageID).ID
 	doc := update.Updates[1].(*tg.UpdateNewChannelMessage).Message.(*tg.Message).Media
+
 	file, err := utils.FileFromMedia(doc)
 	if err != nil {
 		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
 		return dispatcher.EndGroups
 	}
+
 	fullHash := utils.PackFile(
 		file.FileName,
 		file.FileSize,
@@ -81,32 +86,4 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 
 	row := tg.KeyboardButtonRow{
 		Buttons: []tg.KeyboardButtonClass{
-			&tg.KeyboardButtonURL{
-				Text: "DOWNLOAD",
-				URL:  link + "&d=true",
-			},
-		},
-	}
-	if strings.Contains(file.MimeType, "video") || strings.Contains(file.MimeType, "audio") || strings.Contains(file.MimeType, "pdf") {
-		row.Buttons = append(row.Buttons, &tg.KeyboardButtonURL{
-			Text: "STREAM",
-			URL:  link,
-		})
-	}
-	markup := &tg.ReplyInlineMarkup{
-		Rows: []tg.KeyboardButtonRow{row},
-	}
-
-	// Enviar mensaje SIN texto visible, solo botones
-	_, err = ctx.Reply(u, "", &ext.ReplyOpts{
-		Markup:           markup,
-		NoWebpage:        true,
-		ReplyToMessageId: u.EffectiveMessage.ID,
-	})
-	if err != nil {
-		utils.Logger.Sugar().Error(err)
-		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
-	}
-
-	return dispatcher.EndGroups
-}
+			&tg.KeyboardB
