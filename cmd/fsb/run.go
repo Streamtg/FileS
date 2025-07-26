@@ -12,11 +12,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
-
-const versionString = "3.1.0" // ✅ Definido aquí para evitar errores de referencia
 
 var runCmd = &cobra.Command{
 	Use:                "run",
@@ -32,7 +31,6 @@ func runApp(cmd *cobra.Command, args []string) {
 	log := utils.Logger
 	mainLogger := log.Named("Main")
 	mainLogger.Info("Starting server")
-
 	config.Load(log, cmd)
 	router := getRouter(log)
 
@@ -41,7 +39,6 @@ func runApp(cmd *cobra.Command, args []string) {
 		log.Panic("Failed to start main bot", zap.Error(err))
 	}
 	cache.InitCache(log)
-
 	workers, err := bot.StartWorkers(log)
 	if err != nil {
 		log.Panic("Failed to start workers", zap.Error(err))
@@ -49,11 +46,9 @@ func runApp(cmd *cobra.Command, args []string) {
 	}
 	workers.AddDefaultClient(mainBot, mainBot.Self)
 	bot.StartUserBot(log)
-
 	mainLogger.Info("Server started", zap.Int("port", config.ValueOf.Port))
 	mainLogger.Info("File Stream Bot", zap.String("version", versionString))
 	mainLogger.Sugar().Infof("Server is running at %s", config.ValueOf.Host)
-
 	err = router.Run(fmt.Sprintf(":%d", config.ValueOf.Port))
 	if err != nil {
 		mainLogger.Sugar().Fatalln(err)
@@ -66,14 +61,8 @@ func getRouter(log *zap.Logger) *gin.Engine {
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
-
 	router := gin.Default()
 	router.Use(gin.ErrorLogger())
-
-	// ✅ Cargar plantilla HTML desde ruta absoluta (ajusta si cambia la ruta real)
-	router.LoadHTMLGlob("/templates/view.html")
-
-	// ✅ Ruta raíz JSON (como antes)
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, types.RootResponse{
 			Message: "Server is running.",
@@ -82,15 +71,6 @@ func getRouter(log *zap.Logger) *gin.Engine {
 			Version: versionString,
 		})
 	})
-
-	// ✅ Nueva ruta /view que renderiza una plantilla HTML
-	router.GET("/view", func(ctx *gin.Context) {
-		ctx.HTML(http.StatusOK, "view.html", gin.H{
-			"title":   "Telegram File Stream Bot",
-			"message": "Contenido cargado desde la plantilla view.html",
-		})
-	})
-
 	routes.Load(log, router)
 	return router
 }
