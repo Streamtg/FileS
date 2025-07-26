@@ -64,8 +64,7 @@ func getRouter(log *zap.Logger) *gin.Engine {
 	router.Use(gin.ErrorLogger())
 
 	// 👉 Cargar plantillas HTML desde la carpeta /templates
-	router.LoadHTMLGlob("templates/*.html")
-
+	router.LoadHTMLGlob("/home/idies/FileS/templates/*.html")
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, types.RootResponse{
 			Message: "Server is running.",
